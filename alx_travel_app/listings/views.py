@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Payment
 from .serializers import PaymentInitiateSerializer, PaymentVerifySerializer
+from .tasks import send_booking_email
 
 CHAPA_SECRET_KEY = os.getenv('CHAPA_SECRET_KEY')
 
@@ -76,3 +77,13 @@ class PaymentVerifyAPIView(APIView):
             "amount": payment.amount
         }, status=status.HTTP_200_OK)
 
+
+class BookingViewSet(viewsets.ModelViewSet):
+    queryset = Booking.objects.all()
+    serializer_class = BookingSerializer
+
+    def perform_create(self, serializer):
+        booking = serializer.save()
+        recipient_email = booking.user.email  # Adjust depending on your model
+        booking_info = f'Destination: {booking.destination}, Date: {booking.date}'
+        send_booking_email.delay(recipient_email, booking_info)
